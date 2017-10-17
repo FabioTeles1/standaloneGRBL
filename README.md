@@ -1,5 +1,7 @@
 # Standalone GRBL
-An open source, embedded, high performance CNC laser cutting and engraving controller written in optimized C that will run on a straight Arduino. This version only for laser cutters and engravers, and it can work without a PC.
+Hi, I hope you found this project useful. If you have any questions or problems, please go to [**Issues**](https://github.com/RunnyBore604/standaloneGRBL/issues) tab and post your messages in the appropriate topic.
+
+## ARDUINO NANO - 2 AXIS EMBEDDED CONTROLLER
 
 ### SCHEMATIC
 ![schematic](/uploads/schematic.jpg?raw=true)
@@ -17,8 +19,33 @@ An open source, embedded, high performance CNC laser cutting and engraving contr
 
 **STOP** stops a running program. Also this button turns off the laser.
 
-### DOWNLOADS
-[standaloneGRBL.zip](https://yadi.sk/d/7bHaRurQ3LtvVW)
+## ARDUINO MEGA2560 - 3 AXIS CONTROLLER
+
+### PINOUT
+
+### BUTTONS
+**X+**, **X-**, **Y+**, **Y-**, **Z+** and **Z-** allows you to manually move the machine, the motion will continue as long as the button is pressed. Otherwise, the axis will move exactly 0.1 or 0.5 mm each time the button is pressed.
+
+**XY-0** and **Z-0** sets the datum position for the corresponding axes.
+
+**HOME** will home all axes, if your machine has home switches. Otherwise, this button zeroes machine position for all axes, with confirmation.
+
+**HIGH/LOW** toggles the speed of manual movements.
+
+**ON/OFF** starts/stops spindle.
+
+**ORIGIN** moves all axes to the origin, first lifts up Z axis if necessary.
+
+**RUN/PAUSE** allows you to open a U-disk file from the SD card. Also this button pauses a program and resumes running from a pause.
+
+**STOP** stops a running program. Also this button allows you configure speed of manual movements.
+
+**MENU** + **1**-**9** switches coordinate systems.
+
+**ON/OFF** + **Z+** or **Z-** switches spindle gear.
+
+## DOWNLOADS
+[standaloneGRBL_2axis.zip](https://yadi.sk/d/7bHaRurQ3LtvVW)
 
 ***
 If you found this software useful, make a small donation: [PayPal](https://www.paypal.me/runnybore604) / [Yandex.Money](https://money.yandex.ru/to/410013968246480)
