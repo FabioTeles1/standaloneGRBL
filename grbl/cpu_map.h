@@ -53,6 +53,7 @@
 #define SPINDLE_OCR_REGISTER      OCR2B
 #define SPINDLE_COMB_BIT          COM2B1
 #define SPINDLE_TCCRA_INIT_MASK   ((1<<WGM20)|(1<<WGM21))
+#define SERVO_TCCRB_INIT_MASK     ((1<<CS22)|(1<<CS21)|(1<<CS20))
 
 // 62.5kHz
 //#define SPINDLE_TCCRB_INIT_MASK   (1<<CS20)

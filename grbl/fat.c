@@ -1,4 +1,5 @@
 #include "grbl.h"
+#include "byteordering.h"
 
 #define FAT16_CLUSTER_FREE 0x0000
 #define FAT16_CLUSTER_RESERVED_MIN 0xfff0
@@ -18,39 +19,40 @@
 
 struct fat_header_struct {
   uint64_t size;
-
   uint64_t fat_offset;
   uint32_t fat_size;
-
   uint16_t sector_size;
   uint16_t cluster_size;
-
   uint64_t cluster_zero_offset;
-
   uint64_t root_dir_offset;
-  uint32_t root_dir_cluster; };
+  uint32_t root_dir_cluster;
+};
 
 struct fat_fs_struct {
   struct partition_struct* partition;
   struct fat_header_struct header;
-  uint32_t cluster_free; };
+  uint32_t cluster_free;
+};
 
 struct fat_file_struct {
   struct fat_fs_struct* fs;
   struct fat_dir_entry_struct dir_entry;
   uint64_t pos;
-  uint32_t pos_cluster; };
+  uint32_t pos_cluster;
+};
 
 struct fat_dir_struct {
   struct fat_fs_struct* fs;
   struct fat_dir_entry_struct dir_entry;
   uint32_t entry_cluster;
-  uint16_t entry_offset; };
+  uint16_t entry_offset;
+};
 
 struct fat_read_dir_callback_arg {
   struct fat_dir_entry_struct* dir_entry;
   uintptr_t bytes_read;
-  uint8_t finished; };
+  uint8_t finished;
+};
 
 static struct partition_struct partition_handles[1];
 static struct fat_fs_struct fat_fs_handles[1];
@@ -67,25 +69,32 @@ struct partition_struct *partition_open(device_read_t device_read, device_read_i
   uint8_t buffer[0x10];
 
   if(!device_read || !device_read_interval || index >= 4) {
-    return 0; }
+    return 0;
+  }
 
   if(index >= 0) {
     if(!device_read(0x01be + index * 0x10, buffer, sizeof(buffer))) {
-      return 0; }
+      return 0;
+    }
 
     if(buffer[4] == 0x00) {
-      return 0; } }
+      return 0;
+    }
+  }
 
   new_partition = partition_handles;
   uint8_t i;
   for(i = 0; i < 1; ++i) {
     if(new_partition->type == PARTITION_TYPE_FREE) {
-      break; }
+      break;
+    }
 
-    ++new_partition; }
+    ++new_partition;
+  }
 
   if(i >= 1) {
-    return 0; }
+    return 0;
+  }
 
   memset(new_partition, 0, sizeof(*new_partition));
 
@@ -97,56 +106,71 @@ struct partition_struct *partition_open(device_read_t device_read, device_read_i
     new_partition->offset = read32(&buffer[8]);
     new_partition->length = read32(&buffer[12]);
   } else {
-    new_partition->type = 0xff; }
+    new_partition->type = 0xff;
+  }
 
-  return new_partition; }
+  return new_partition;
+}
 
 void partition_close(struct partition_struct *partition) {
   if(partition) {
-    partition->type = PARTITION_TYPE_FREE; } }
+    partition->type = PARTITION_TYPE_FREE;
+  }
+}
 
 struct fat_fs_struct *fat_open(struct partition_struct* partition) {
   if(!partition) {
-    return 0; }
+    return 0;
+  }
 
   struct fat_fs_struct *fs = fat_fs_handles;
   uint8_t i;
   for(i = 0; i < 1; ++i) {
     if(!fs->partition) {
-      break; }
+      break;
+    }
 
-    ++fs; }
+    ++fs;
+  }
   if(i >= 1) {
-    return 0; }
+    return 0;
+  }
 
   memset(fs, 0, sizeof(*fs));
 
   fs->partition = partition;
   if(!fat_read_header(fs)) {
     fs->partition = 0;
-    return 0; }
+    return 0;
+  }
 
-  return fs; }
+  return fs;
+}
 
 void fat_close(struct fat_fs_struct *fs) {
   if(!fs) {
-    return; }
+    return;
+  }
 
-  fs->partition = 0; }
+  fs->partition = 0;
+}
 
 uint8_t fat_read_header(struct fat_fs_struct *fs) {
   if(!fs) {
-    return 0; }
+    return 0;
+  }
 
   struct partition_struct *partition = fs->partition;
   if(!partition) {
-    return 0; }
+    return 0;
+  }
 
   uint8_t buffer[37];
 
   uint64_t partition_offset = (uint64_t) partition->offset * 512;
   if(!partition->device_read(partition_offset + 0x0b, buffer, sizeof(buffer))) {
-    return 0; }
+    return 0;
+  }
 
   uint16_t bytes_per_sector = read16(&buffer[0x00]);
   uint16_t reserved_sectors = read16(&buffer[0x03]);
@@ -163,11 +187,14 @@ uint8_t fat_read_header(struct fat_fs_struct *fs) {
     if(sector_count_16 == 0) {
       return 0;
     } else {
-      sector_count = sector_count_16; } }
+      sector_count = sector_count_16;
+    }
+  }
   if(sectors_per_fat != 0) {
     sectors_per_fat32 = sectors_per_fat;
   } else if(sectors_per_fat32 == 0) {
-    return 0; }
+    return 0;
+  }
 
   uint32_t data_sector_count = sector_count - reserved_sectors - sectors_per_fat32 * fat_copies - ((max_root_entries * 32 + bytes_per_sector - 1) / bytes_per_sector);
   uint32_t data_cluster_count = data_sector_count / sectors_per_cluster;
@@ -176,7 +203,8 @@ uint8_t fat_read_header(struct fat_fs_struct *fs) {
   } else if(data_cluster_count < 65525) {
     partition->type = PARTITION_TYPE_FAT16;
   } else {
-    partition->type = PARTITION_TYPE_FAT32; }
+    partition->type = PARTITION_TYPE_FAT32;
+  }
 
   struct fat_header_struct *header = &fs->header;
   memset(header, 0, sizeof(*header));
@@ -196,58 +224,73 @@ uint8_t fat_read_header(struct fat_fs_struct *fs) {
   } else {
     header->cluster_zero_offset = header->fat_offset + (uint64_t) fat_copies * sectors_per_fat32 * bytes_per_sector;
 
-    header->root_dir_cluster = cluster_root_dir; }
+    header->root_dir_cluster = cluster_root_dir;
+  }
 
-  return 1; }
+  return 1;
+}
 
 uint32_t fat_get_next_cluster(const struct fat_fs_struct *fs, uint32_t cluster_num) {
   if(!fs || cluster_num < 2) {
-    return 0; }
+    return 0;
+  }
 
   if(fs->partition->type == PARTITION_TYPE_FAT32) {
     uint32_t fat_entry;
     if(!fs->partition->device_read(fs->header.fat_offset + (uint64_t) cluster_num * sizeof(fat_entry), (uint8_t*) &fat_entry, sizeof(fat_entry))) {
-      return 0; }
+      return 0;
+    }
 
-    cluster_num = ltoh32(fat_entry);
+    cluster_num = fat_entry;
 
     if(cluster_num == FAT32_CLUSTER_FREE || cluster_num == FAT32_CLUSTER_BAD || (cluster_num >= FAT32_CLUSTER_RESERVED_MIN && cluster_num <= FAT32_CLUSTER_RESERVED_MAX) || (cluster_num >= FAT32_CLUSTER_LAST_MIN && cluster_num <= FAT32_CLUSTER_LAST_MAX)) {
-      return 0; }
+      return 0;
+    }
   } else {
     uint16_t fat_entry;
     if(!fs->partition->device_read(fs->header.fat_offset + (uint64_t) cluster_num * sizeof(fat_entry), (uint8_t*) &fat_entry, sizeof(fat_entry))) {
-      return 0; }
+      return 0;
+    }
 
-    cluster_num = ltoh16(fat_entry);
+    cluster_num = fat_entry;
 
     if(cluster_num == FAT16_CLUSTER_FREE || cluster_num == FAT16_CLUSTER_BAD || (cluster_num >= FAT16_CLUSTER_RESERVED_MIN && cluster_num <= FAT16_CLUSTER_RESERVED_MAX) || (cluster_num >= FAT16_CLUSTER_LAST_MIN && cluster_num <= FAT16_CLUSTER_LAST_MAX)) {
-      return 0; } }
+      return 0;
+    }
+  }
 
-  return cluster_num; }
+  return cluster_num;
+}
 
 uint64_t fat_cluster_offset(const struct fat_fs_struct *fs, uint32_t cluster_num) {
   if(!fs || cluster_num < 2) {
-    return 0; }
+    return 0;
+  }
 
-  return fs->header.cluster_zero_offset + (uint64_t) (cluster_num - 2) * fs->header.cluster_size; }
+  return fs->header.cluster_zero_offset + (uint64_t) (cluster_num - 2) * fs->header.cluster_size;
+}
 
 uint8_t fat_get_dir_entry_of_path(struct fat_fs_struct *fs, const char* path, struct fat_dir_entry_struct *dir_entry) {
   if(!fs || !path || path[0] == '\0' || !dir_entry) {
-    return 0; }
+    return 0;
+  }
 
   if(path[0] == '/') {
-    ++path; }
+    ++path;
+  }
 
   memset(dir_entry, 0, sizeof(*dir_entry));
   dir_entry->attributes = FAT_ATTRIB_DIR;
 
   while(1) {
     if(path[0] == '\0') {
-      return 1; }
+      return 1;
+    }
 
     struct fat_dir_struct *dd = fat_open_dir(fs, dir_entry);
     if(!dd) {
-      break; }
+      break;
+    }
 
     const char *sub_path = strchr(path, '/');
     uint8_t length_to_sep;
@@ -256,56 +299,71 @@ uint8_t fat_get_dir_entry_of_path(struct fat_fs_struct *fs, const char* path, st
       ++sub_path;
     } else {
       length_to_sep = strlen(path);
-      sub_path = path + length_to_sep; }
+      sub_path = path + length_to_sep;
+    }
 
     while(fat_read_dir(dd, dir_entry)) {
       if((strlen(dir_entry->long_name) != length_to_sep || strncmp(path, dir_entry->long_name, length_to_sep) != 0)) {
-        continue; }
+        continue;
+      }
 
       fat_close_dir(dd);
       dd = 0;
 
       if(path[length_to_sep] == '\0') {
-        return 1; }
+        return 1;
+      }
 
       if(dir_entry->attributes & FAT_ATTRIB_DIR) {
         path = sub_path;
-        break; }
+        break;
+      }
 
-      return 0; }
+      return 0;
+    }
 
-    fat_close_dir(dd); }
+    fat_close_dir(dd);
+  }
 
-  return 0; }
+  return 0;
+}
 
 struct fat_file_struct *fat_open_file(struct fat_fs_struct *fs, const struct fat_dir_entry_struct *dir_entry) {
   if(!fs || !dir_entry || (dir_entry->attributes & FAT_ATTRIB_DIR)) {
-    return 0; }
+    return 0;
+  }
 
   struct fat_file_struct *fd = fat_file_handles;
   uint8_t i;
   for(i = 0; i < 1; ++i) {
     if(!fd->fs) {
-      break; }
+      break;
+    }
 
-    ++fd; }
+    ++fd;
+  }
   if(i >= 1) {
-    return 0; }
+    return 0;
+  }
 
   memcpy(&fd->dir_entry, dir_entry, sizeof(*dir_entry));
   fd->fs = fs;
   fd->pos = 0;
   fd->pos_cluster = dir_entry->cluster;
 
-  return fd; }
+  return fd;
+}
 
 void fat_close_file(struct fat_file_struct *fd) {
   if(fd) {
-    fd->fs = 0; } }
+    fd->fs = 0;
+  }
+}
 
 uint8_t fat_read_byte(struct fat_file_struct *fd) {
   if(!fd || fd->pos + 1 > fd->dir_entry.file_size) {
-    return 0xff; }
+    return 0xff;
+  }
 
   uint16_t cluster_size = fd->fs->header.cluster_size;
   uint32_t cluster_num = fd->pos_cluster;
@@ -315,7 +373,8 @@ uint8_t fat_read_byte(struct fat_file_struct *fd) {
     cluster_num = fd->dir_entry.cluster;
 
     if(!cluster_num) {
-      return 0xff; }
+      return 0xff;
+    }
 
     if(fd->pos) {
       uint32_t pos = fd->pos;
@@ -323,13 +382,18 @@ uint8_t fat_read_byte(struct fat_file_struct *fd) {
         pos -= cluster_size;
         cluster_num = fat_get_next_cluster(fd->fs, cluster_num);
         if(!cluster_num) {
-          return 0xff; } } } }
+          return 0xff;
+        }
+      }
+    }
+  }
 
   uint64_t cluster_offset = fat_cluster_offset(fd->fs, cluster_num) + first_cluster_offset;
 
   uint8_t buffer[1];
   if(!fd->fs->partition->device_read(cluster_offset, buffer, 1)) {
-    return 0xff; }
+    return 0xff; 
+  }
 
   fd->pos++;
 
@@ -338,40 +402,51 @@ uint8_t fat_read_byte(struct fat_file_struct *fd) {
       first_cluster_offset = 0;
     } else {
       fd->pos_cluster = 0;
-      return buffer[0]; } }
+      return buffer[0];
+    }
+  }
 
   fd->pos_cluster = cluster_num;
 
-  return buffer[0]; }
+  return buffer[0];
+}
 
 struct fat_dir_struct* fat_open_dir(struct fat_fs_struct *fs, const struct fat_dir_entry_struct *dir_entry) {
   if(!fs || !dir_entry || !(dir_entry->attributes & FAT_ATTRIB_DIR)) {
-    return 0; }
+    return 0;
+  }
 
   struct fat_dir_struct* dd = fat_dir_handles;
   uint8_t i;
   for(i = 0; i < 1; ++i) {
     if(!dd->fs) {
-      break; }
+      break;
+    }
 
-    ++dd; }
+    ++dd;
+  }
   if(i >= 1) {
-    return 0; }
+    return 0;
+  }
 
   memcpy(&dd->dir_entry, dir_entry, sizeof(*dir_entry));
   dd->fs = fs;
   dd->entry_cluster = dir_entry->cluster;
   dd->entry_offset = 0;
 
-  return dd; }
+  return dd;
+}
 
 void fat_close_dir(struct fat_dir_struct *dd) {
   if(dd) {
-    dd->fs = 0; } }
+    dd->fs = 0;
+  }
+}
 
 uint8_t fat_read_dir(struct fat_dir_struct *dd, struct fat_dir_entry_struct *dir_entry) {
   if(!dd || !dir_entry) {
-    return 0; }
+    return 0;
+  }
 
   struct fat_fs_struct* fs = dd->fs;
   const struct fat_header_struct* header = &fs->header;
@@ -382,7 +457,8 @@ uint8_t fat_read_dir(struct fat_dir_struct *dd, struct fat_dir_entry_struct *dir
 
   if(cluster_offset >= cluster_size) {
     fat_reset_dir(dd);
-    return 0; }
+    return 0;
+  }
 
   memset(&arg, 0, sizeof(arg));
   memset(dir_entry, 0, sizeof(*dir_entry));
@@ -392,7 +468,9 @@ uint8_t fat_read_dir(struct fat_dir_struct *dd, struct fat_dir_entry_struct *dir
     if(fs->partition->type == PARTITION_TYPE_FAT32) {
       cluster_num = header->root_dir_cluster;
     } else {
-      cluster_size = header->cluster_zero_offset - header->root_dir_offset; } }
+      cluster_size = header->cluster_zero_offset - header->root_dir_offset;
+    }
+  }
 
   uint8_t buffer[32];
   while(!arg.finished) {
@@ -401,11 +479,13 @@ uint8_t fat_read_dir(struct fat_dir_struct *dd, struct fat_dir_entry_struct *dir
     if(cluster_num == 0) {
       pos += header->root_dir_offset;
     } else {
-      pos += fat_cluster_offset(fs, cluster_num); }
+      pos += fat_cluster_offset(fs, cluster_num);
+    }
 
     arg.bytes_read = 0;
     if(!fs->partition->device_read_interval(pos, buffer, sizeof(buffer), cluster_left, fat_dir_entry_read_callback, &arg)) {
-      return 0; }
+      return 0;
+    }
 
     cluster_offset += arg.bytes_read;
 
@@ -416,20 +496,25 @@ uint8_t fat_read_dir(struct fat_dir_struct *dd, struct fat_dir_entry_struct *dir
       if(!arg.finished) {
         fat_reset_dir(dd);
         return 0; }
-      break; } }
+      break;
+    }
+  }
 
   dd->entry_cluster = cluster_num;
   dd->entry_offset = cluster_offset;
 
-  return arg.finished; }
+  return arg.finished;
+}
 
 uint8_t fat_reset_dir(struct fat_dir_struct *dd) {
   if(!dd) {
-    return 0; }
+    return 0;
+  }
 
   dd->entry_cluster = dd->dir_entry.cluster;
   dd->entry_offset = 0;
-  return 1; }
+  return 1;
+}
 
 uint8_t fat_dir_entry_read_callback(uint8_t *buffer, uint64_t offset, void *p) {
   struct fat_read_dir_callback_arg *arg = p;
@@ -438,10 +523,12 @@ uint8_t fat_dir_entry_read_callback(uint8_t *buffer, uint64_t offset, void *p) {
   arg->bytes_read += 32;
 
   if(buffer[0] == FAT_DIRENTRY_DELETED || !buffer[0]) {
-    return 1; }
+    return 1;
+  }
 
   if(buffer[11] == 0x0f) {
-    return 1; }
+    return 1;
+  }
 
   char *long_name = dir_entry->long_name;
   
@@ -451,14 +538,18 @@ uint8_t fat_dir_entry_read_callback(uint8_t *buffer, uint64_t offset, void *p) {
   uint8_t i;
   for(i = 0; i < 8; ++i) {
     if(buffer[i] == ' ') {
-      break; }
+      break;
+    }
     long_name[i] = buffer[i];
 
     if((buffer[12] & 0x08) && buffer[i] >= 'A' && buffer[i] <= 'Z') {
-      long_name[i] += 'a' - 'A'; } }
+      long_name[i] += 'a' - 'A';
+    }
+  }
 
   if(long_name[0] == 0x05) {
-    long_name[0] = (char) FAT_DIRENTRY_DELETED; }
+    long_name[0] = (char) FAT_DIRENTRY_DELETED;
+  }
 
   if(buffer[8] != ' ') {
     long_name[i++] = '.';
@@ -466,13 +557,17 @@ uint8_t fat_dir_entry_read_callback(uint8_t *buffer, uint64_t offset, void *p) {
     uint8_t j = 8;
     for(; j < 11; ++j) {
       if(buffer[j] == ' ') {
-        break; }
+        break;
+      }
       long_name[i] = buffer[j];
 
       if((buffer[12] & 0x10) && buffer[j] >= 'A' && buffer[j] <= 'Z') {
-        long_name[i] += 'a' - 'A'; }
+        long_name[i] += 'a' - 'A';
+      }
 
-      ++i; } }
+      ++i;
+    }
+  }
 
   long_name[i] = '\0';
 
@@ -482,4 +577,5 @@ uint8_t fat_dir_entry_read_callback(uint8_t *buffer, uint64_t offset, void *p) {
   dir_entry->file_size = read32(&buffer[28]);
 
   arg->finished = 1;
-  return 0; }
+  return 0;
+}

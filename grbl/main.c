@@ -10,10 +10,10 @@ volatile uint8_t btn_state;
 volatile uint8_t btn;
 
 int main(void) {
-  lcd_init();
-  system_init();
-  serial_init();
   settings_init();
+  lcd_init();
+  serial_init();
+  system_init();
   stepper_init();
   spindle_init();
 
@@ -23,7 +23,8 @@ int main(void) {
     else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); }
   } else {
     LIMIT_DDR &= ~(1<<XY_LIMIT_BIT);
-    LIMIT_PORT |= (1<<XY_LIMIT_BIT); }
+    LIMIT_PORT |= (1<<XY_LIMIT_BIT);
+  }
 
   OCR2A = 255;
   TIMSK2 |= (1 << OCIE2A);
@@ -31,17 +32,18 @@ int main(void) {
   memset(sys_position, 0, sizeof(sys_position));
   memset(last_position, 0, sizeof(last_position));
   #ifndef COREXY
-    settings_read_coord_data();
+  settings_read_coord_data();
   #else
-    settings.flags &= ~BITFLAG_HOMING_ENABLE;
-    memset(wco, 0, sizeof(wco));
+  settings.flags &= ~BITFLAG_HOMING_ENABLE;
+  memset(wco, 0, sizeof(wco));
   #endif
   sei();
 
   memset(&sys, 0, sizeof(system_t));
   memset(&pl_data, 0, sizeof(plan_line_data_t));
   if (bit_istrue(settings.flags,BITFLAG_HOMING_ENABLE)) {
-    sys.state = STATE_ALARM; }
+    sys.state = STATE_ALARM;
+  }
   sys.f_override = 100;
 
   report_status_message(STATUS_RESET);
@@ -55,10 +57,11 @@ int main(void) {
 
     protocol_main_loop();
 
-    spindle_set_speed(SPINDLE_PWM_OFF_VALUE);
-    lcd_state2();
+    spindle_set_speed(SPINDLE_PWM_OFF_VALUE); lcd_state2();
     sys.abort = 0;
     btn_state = 0;
-    sys_rt_exec_state = EXEC_STATUS_REPORT; }
+    sys_rt_exec_state = EXEC_STATUS_REPORT;
+  }
 
-  return 0; }
+  return 0;
+}

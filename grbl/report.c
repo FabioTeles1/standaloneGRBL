@@ -7,8 +7,10 @@ void report_status_message(uint8_t status_code) {
     printPgmString(PSTR("ok"));
   } else {
     printPgmString(PSTR("error:"));
-    print_uint8_base10(status_code); }
-  report_util_line_feed(); }
+    print_uint8_base10(status_code);
+  }
+  report_util_line_feed();
+}
 
 void report_build_info() {
   serial_write('[');
@@ -16,7 +18,8 @@ void report_build_info() {
   serial_write(',');
   print_uint32_base10(RX_BUFFER_SIZE);
   serial_write(']');
-  report_util_line_feed(); }
+  report_util_line_feed();
+}
 
 void report_grbl_settings() {
   serial_write('{');
@@ -47,5 +50,12 @@ void report_grbl_settings() {
   print_uint8_base10(bit_istrue(settings.flags,BITFLAG_HOMING_ENABLE));
   serial_write(',');
   print_uint8_base10(bit_istrue(settings.flags,BITFLAG_XY_HOME_PIN_AS_ST_ENABLE));
+  serial_write(',');
+  print_uint8_base10(settings.servo_max_pwm);
+  serial_write(',');
+  print_uint8_base10(settings.servo_min_pwm);
+  serial_write(',');
+  print_uint32_base10(settings.servo_delay);
   serial_write('}');
-  report_util_line_feed(); }
+  report_util_line_feed();
+}

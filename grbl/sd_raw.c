@@ -16,6 +16,9 @@
 #define SD_RAW_SPEC_2 1
 #define SD_RAW_SPEC_SDHC 2
 
+#define select_card() PORTB &= ~(1<<PORTB2)
+#define unselect_card() PORTB |= (1<<PORTB2)
+
 static uint8_t raw_block[512];
 static uint64_t raw_block_address;
 
@@ -40,7 +43,8 @@ uint8_t sd_raw_init() {
   sd_raw_card_type = 0;
 
   for(uint8_t i = 0; i < 10; ++i) {
-    sd_raw_rec_byte(); }
+    sd_raw_rec_byte();
+  }
 
   select_card();
 
@@ -48,58 +52,74 @@ uint8_t sd_raw_init() {
   for(uint16_t i = 0; ; ++i) {
     response = sd_raw_send_command(CMD_GO_IDLE_STATE, 0);
     if(response == (1 << R1_IDLE_STATE)) {
-      break; }
+      break;
+    }
 
     if(i == 0x1ff) {
       unselect_card();
-      return 0; } }
+      return 0;
+    }
+  }
 
   response = sd_raw_send_command(CMD_SEND_IF_COND, 0x100 | 0xaa);
   if((response & (1 << R1_ILL_COMMAND)) == 0) {
     sd_raw_rec_byte();
     sd_raw_rec_byte();
     if((sd_raw_rec_byte() & 0x01) == 0) {
-      return 0; }
+      return 0;
+    }
     if(sd_raw_rec_byte() != 0xaa) {
-      return 0; }
+      return 0;
+    }
     sd_raw_card_type |= (1 << SD_RAW_SPEC_2);
   } else {
     sd_raw_send_command(CMD_APP, 0);
     response = sd_raw_send_command(CMD_SD_SEND_OP_COND, 0);
     if((response & (1 << R1_ILL_COMMAND)) == 0) {
-      sd_raw_card_type |= (1 << SD_RAW_SPEC_1); } }
+      sd_raw_card_type |= (1 << SD_RAW_SPEC_1);
+    }
+  }
 
   for(uint16_t i = 0; ; ++i) {
     if(sd_raw_card_type & ((1 << SD_RAW_SPEC_1) | (1 << SD_RAW_SPEC_2))) {
       uint32_t arg = 0;
       if(sd_raw_card_type & (1 << SD_RAW_SPEC_2)) {
-        arg = 0x40000000; }
+        arg = 0x40000000;
+      }
       sd_raw_send_command(CMD_APP, 0);
       response = sd_raw_send_command(CMD_SD_SEND_OP_COND, arg);
     } else {
-      response = sd_raw_send_command(CMD_SEND_OP_COND, 0); }
+      response = sd_raw_send_command(CMD_SEND_OP_COND, 0);
+    }
 
     if((response & (1 << R1_IDLE_STATE)) == 0) {
-      break; }
+      break;
+    }
 
     if(i == 0x7fff) {
       unselect_card();
-      return 0; } }
+      return 0;
+    }
+  }
 
   if(sd_raw_card_type & (1 << SD_RAW_SPEC_2)) {
     if(sd_raw_send_command(CMD_READ_OCR, 0)) {
       unselect_card();
-      return 0; }
+      return 0;
+    }
     if(sd_raw_rec_byte() & 0x40) {
-      sd_raw_card_type |= (1 << SD_RAW_SPEC_SDHC); }
+      sd_raw_card_type |= (1 << SD_RAW_SPEC_SDHC);
+    }
 
     sd_raw_rec_byte();
     sd_raw_rec_byte();
-    sd_raw_rec_byte(); }
+    sd_raw_rec_byte();
+  }
 
   if(sd_raw_send_command(CMD_SET_BLOCKLEN, 512)) {
     unselect_card();
-    return 0; }
+    return 0;
+  }
 
   unselect_card();
 
@@ -108,21 +128,25 @@ uint8_t sd_raw_init() {
 
   raw_block_address = (uint64_t) - 1;
   if(!sd_raw_read(0, raw_block, sizeof(raw_block))) {
-    return 0; }
+    return 0;
+  }
 
-  return 1; }
+  return 1;
+}
 
 void sd_raw_send_byte(uint8_t b) {
   SPDR = b;
-  while(!(SPSR & (1<<SPIF)));
-  SPSR &= ~(1<<SPIF); }
+  while(!(SPSR & (1<<SPIF))) {}
+  SPSR &= ~(1<<SPIF);
+}
 
 uint8_t sd_raw_rec_byte() {
   SPDR = 0xff;
-  while(!(SPSR & (1 << SPIF)));
+  while(!(SPSR & (1 << SPIF))) {}
   SPSR &= ~(1 << SPIF);
 
-  return SPDR; }
+  return SPDR;
+}
 
 uint8_t sd_raw_send_command(uint8_t command, uint32_t arg) {
   uint8_t response;
@@ -143,14 +167,18 @@ uint8_t sd_raw_send_command(uint8_t command, uint32_t arg) {
       break;
     default:
       sd_raw_send_byte(0xff);
-      break; }
+      break;
+  }
 
   for(uint8_t i = 0; i < 10; ++i) {
     response = sd_raw_rec_byte();
     if(response != 0xff) {
-      break; } }
+      break;
+    }
+  }
 
-  return response; }
+  return response;
+}
 
 uint8_t sd_raw_read(uint64_t offset, uint8_t *buffer, uintptr_t length) {
   uint64_t block_address;
@@ -161,19 +189,22 @@ uint8_t sd_raw_read(uint64_t offset, uint8_t *buffer, uintptr_t length) {
     block_address = offset - block_offset;
     read_length = 512 - block_offset;
     if(read_length > length) {
-      read_length = length; }
+      read_length = length;
+    }
 
     if(block_address != raw_block_address) {
       select_card();
       if(sd_raw_send_command(CMD_READ_SINGLE_BLOCK, (sd_raw_card_type & (1 << SD_RAW_SPEC_SDHC) ? block_address / 512 : block_address))) {
         unselect_card();
-        return 0; }
+        return 0;
+      }
 
       while(sd_raw_rec_byte() != 0xfe);
 
       uint8_t* cache = raw_block;
       for(uint16_t i = 0; i < 512; ++i) {
-        *cache++ = sd_raw_rec_byte(); }
+        *cache++ = sd_raw_rec_byte();
+      }
       raw_block_address = block_address;
 
       memcpy(buffer, raw_block + block_offset, read_length);
@@ -187,22 +218,30 @@ uint8_t sd_raw_read(uint64_t offset, uint8_t *buffer, uintptr_t length) {
       sd_raw_rec_byte();
     } else {
       memcpy(buffer, raw_block + block_offset, read_length);
-      buffer += read_length; }
+      buffer += read_length;
+    }
     length -= read_length;
-    offset += read_length; }
+    offset += read_length;
+  }
 
-  return 1; }
+  return 1;
+}
 
 uint8_t sd_raw_read_interval(uint64_t offset, uint8_t *buffer, uintptr_t interval, uintptr_t length, sd_raw_read_interval_handler_t callback, void *p) {
   if(!buffer || interval == 0 || length < interval || !callback) {
-    return 0; }
+    return 0;
+  }
 
   while(length >= interval) {
     if(!sd_raw_read(offset, buffer, interval)) {
-      return 0; }
+      return 0;
+    }
     if(!callback(buffer, offset, p)) {
-      break; }
+      break;
+    }
     offset += interval;
-    length -= interval; }
+    length -= interval;
+  }
 
-  return 1; }
+  return 1;
+}

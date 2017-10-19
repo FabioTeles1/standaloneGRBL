@@ -2,7 +2,7 @@
 #define grbl_h
 
 #define GRBL_VERSION "1.1f"
-#define GRBL_VERSION_BUILD "20170830"
+#define GRBL_VERSION_BUILD "20170904"
 //#define COREXY
 
 #include <avr/io.h>
@@ -21,7 +21,6 @@
 #include "serial.h"
 #include "eeprom.h"
 #include "settings.h"
-#include "byteordering.h"
 #include "sd_raw.h"
 #include "fat.h"
 #include "system.h"

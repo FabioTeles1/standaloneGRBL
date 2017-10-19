@@ -24,7 +24,6 @@
 #define bit_isfalse(x,mask) (0 == (x & mask))
 
 uint8_t read_float(char *line, uint8_t *char_counter, float *float_ptr);
-void delay_ms(uint16_t ms);
 float convert_delta_vector_to_unit_vector(float *vector);
 float limit_value_by_axis_maximum(float *max_value, float *unit_vec);
 

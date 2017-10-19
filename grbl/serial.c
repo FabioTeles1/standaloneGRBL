@@ -22,7 +22,8 @@ void serial_init() {
   UBRR0H = UBRR0_value >> 8;
   UBRR0L = UBRR0_value;
 
-  UCSR0B |= (1<<RXEN0 | 1<<TXEN0 | 1<<RXCIE0); }
+  UCSR0B |= (1<<RXEN0 | 1<<TXEN0 | 1<<RXCIE0);
+}
 
 void serial_write(uint8_t data) {
   uint8_t next_head = serial_tx_buffer_head + 1;
@@ -33,7 +34,8 @@ void serial_write(uint8_t data) {
   serial_tx_buffer[serial_tx_buffer_head] = data;
   serial_tx_buffer_head = next_head;
 
-  UCSR0B |= (1 << UDRIE0); }
+  UCSR0B |= (1 << UDRIE0);
+}
 
 ISR(USART_UDRE_vect) {
   uint8_t tail = serial_tx_buffer_tail;
@@ -45,20 +47,22 @@ ISR(USART_UDRE_vect) {
 
   serial_tx_buffer_tail = tail;
 
-  if (tail == serial_tx_buffer_head) { UCSR0B &= ~(1 << UDRIE0); } }
+  if (tail == serial_tx_buffer_head) { UCSR0B &= ~(1 << UDRIE0); }
+}
 
 uint8_t serial_read() {
   uint16_t tail = serial_rx_buffer_tail;
   if (serial_rx_buffer_head == tail) {
     return SERIAL_NO_DATA;
-  } else {
-    uint8_t data = serial_rx_buffer[tail];
+  }
+  uint8_t data = serial_rx_buffer[tail];
 
-    tail++;
-    if (tail == RX_RING_BUFFER) { tail = 0; }
-    serial_rx_buffer_tail = tail;
+  tail++;
+  if (tail == RX_RING_BUFFER) { tail = 0; }
+  serial_rx_buffer_tail = tail;
 
-    return data; } }
+  return data;
+}
 
 ISR(USART_RX_vect) {
   uint8_t data = UDR0;
@@ -75,7 +79,11 @@ ISR(USART_RX_vect) {
 
       if (next_head != serial_rx_buffer_tail) {
         serial_rx_buffer[serial_rx_buffer_head] = data;
-        serial_rx_buffer_head = next_head; } } }
+        serial_rx_buffer_head = next_head;
+      }
+  }
+}
 
 void serial_reset_read_buffer() {
-  serial_rx_buffer_tail = serial_rx_buffer_head; }
+  serial_rx_buffer_tail = serial_rx_buffer_head;
+}

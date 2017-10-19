@@ -1,9 +1,6 @@
 #ifndef SD_RAW_H
 #define SD_RAW_H
 
-#define select_card() PORTB &= ~(1<<PORTB2)
-#define unselect_card() PORTB |= (1<<PORTB2)
-
 typedef uint8_t (*sd_raw_read_interval_handler_t)(uint8_t *buffer, uint64_t offset, void *p);
 
 uint8_t sd_raw_init();

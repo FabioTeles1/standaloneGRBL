@@ -86,22 +86,18 @@ void st_wake_up() {
     if ((bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS) ? bit_isfalse(STEPPERS_DISABLE_PORT,(1<<STEPPERS_DISABLE_BIT)):bit_istrue(STEPPERS_DISABLE_PORT,(1<<STEPPERS_DISABLE_BIT)))) {
       if (bit_istrue(settings.flags,BITFLAG_INVERT_LIMIT_PINS)) { STEPPERS_DISABLE_PORT |= (1<<STEPPERS_DISABLE_BIT); }
       else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); }
-      delay_ms(200); } }
+      _delay_ms(150);
+    }
+  }
   st.step_outbits = step_port_invert_mask;
 
   TIMSK1 |= (1<<OCIE1A); }
-
-void st_go_idle() {
-  TIMSK1 &= ~(1<<OCIE1A);
-  TCCR1B = (TCCR1B & ~((1<<CS12) | (1<<CS11))) | (1<<CS10);
-
-  busy = 0; }
 
 ISR(TIMER1_COMPA_vect) {
   if (busy) { return; }
 
   STEPPER_PORT = (STEPPER_PORT & ~DIRECTION_MASK) | (st.dir_outbits & DIRECTION_MASK);
-  STEPPER_PORT = (STEPPER_PORT & ~STEP_MASK) | st.step_outbits;
+  STEPPER_PORT = (STEPPER_PORT & ~STEP_MASK) | (st.step_outbits & STEP_MASK);
 
   TCNT0 = -((10*TICKS_PER_MICROSECOND) >> 3);
   TCCR0B = (1<<CS01);
@@ -123,7 +119,8 @@ ISR(TIMER1_COMPA_vect) {
         st.exec_block_index = st.exec_segment->st_block_index;
         st.exec_block = &st_block_buffer[st.exec_block_index];
 
-        st.counter_x = st.counter_y = (st.exec_block->step_event_count >> 1); }
+        st.counter_x = st.counter_y = (st.exec_block->step_event_count >> 1);
+      }
       st.dir_outbits = st.exec_block->direction_bits ^ dir_port_invert_mask;
 
       #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
@@ -131,16 +128,22 @@ ISR(TIMER1_COMPA_vect) {
         st.steps[Y_AXIS] = st.exec_block->steps[Y_AXIS] >> st.exec_segment->amass_level;
       #endif
 
-      if (sys.state == STATE_CYCLE && sys.spindle_speed != SPINDLE_PWM_MIN_VALUE) {
-        spindle_set_speed(st.exec_segment->spindle_pwm); }
+      if (bit_isfalse(settings.flags,BITFLAG_IS_SERVO)) {
+        if (sys.state == STATE_CYCLE && sys.spindle_speed != SPINDLE_PWM_MIN_VALUE) {
+          spindle_set_speed(st.exec_segment->spindle_pwm); }
+      }
     } else {
       TIMSK1 &= ~(1<<OCIE1A);
       TCCR1B = (TCCR1B & ~((1<<CS12) | (1<<CS11))) | (1<<CS10);
 
-      if (sys.spindle_speed > SPINDLE_PWM_MIN_VALUE) { spindle_set_speed(SPINDLE_PWM_OFF_VALUE); }
+      if (bit_isfalse(settings.flags,BITFLAG_IS_SERVO)) {
+        if (sys.spindle_speed > SPINDLE_PWM_MIN_VALUE) { spindle_set_speed(SPINDLE_PWM_OFF_VALUE); }
+      }
       system_set_exec_state_flag(EXEC_CYCLE_STOP);
       busy = 0;
-      return; } }
+      return;
+    }
+  }
 
   st.step_outbits = 0;
 
@@ -153,7 +156,8 @@ ISR(TIMER1_COMPA_vect) {
     st.step_outbits |= (1<<X_STEP_BIT);
     st.counter_x -= st.exec_block->step_event_count;
     if (st.exec_block->direction_bits & (1<<X_DIRECTION_BIT)) { sys_position[X_AXIS]--; }
-    else { sys_position[X_AXIS]++; } }
+    else { sys_position[X_AXIS]++; }
+  }
 
   #ifdef ADAPTIVE_MULTI_AXIS_STEP_SMOOTHING
     st.counter_y += st.steps[Y_AXIS];
@@ -164,19 +168,23 @@ ISR(TIMER1_COMPA_vect) {
     st.step_outbits |= (1<<Y_STEP_BIT);
     st.counter_y -= st.exec_block->step_event_count;
     if (st.exec_block->direction_bits & (1<<Y_DIRECTION_BIT)) { sys_position[Y_AXIS]--; }
-    else { sys_position[Y_AXIS]++; } }
+    else { sys_position[Y_AXIS]++; }
+  }
 
   st.step_count--;
   if (st.step_count == 0) {
     st.exec_segment = NULL;
-    if ( ++segment_buffer_tail == SEGMENT_BUFFER_SIZE) { segment_buffer_tail = 0; } }
+    if ( ++segment_buffer_tail == SEGMENT_BUFFER_SIZE) { segment_buffer_tail = 0; }
+  }
 
   st.step_outbits ^= step_port_invert_mask;
-  busy = 0; }
+  busy = 0;
+}
 
 ISR(TIMER0_OVF_vect) {
   STEPPER_PORT = (STEPPER_PORT & ~STEP_MASK) | (step_port_invert_mask & STEP_MASK);
-  TCCR0B = 0; }
+  TCCR0B = 0;
+}
 
 void st_generate_step_dir_invert_masks() {
   uint8_t idx;
@@ -184,10 +192,15 @@ void st_generate_step_dir_invert_masks() {
   dir_port_invert_mask = 0;
   for (idx=0; idx<N_AXIS; idx++) {
     if (bit_istrue(settings.step_invert_mask,bit(idx))) { step_port_invert_mask |= get_step_pin_mask(idx); }
-    if (bit_istrue(settings.dir_invert_mask,bit(idx))) { dir_port_invert_mask |= get_direction_pin_mask(idx); } } }
+    if (bit_istrue(settings.dir_invert_mask,bit(idx))) { dir_port_invert_mask |= get_direction_pin_mask(idx); }
+  }
+  STEPPER_PORT = (STEPPER_PORT & ~DIRECTION_MASK) | (dir_port_invert_mask & DIRECTION_MASK);
+  STEPPER_PORT = (STEPPER_PORT & ~STEP_MASK) | (step_port_invert_mask & STEP_MASK);
+}
 
 void st_reset() {
-  st_go_idle();
+  TIMSK1 &= ~(1<<OCIE1A);
+  TCCR1B = (TCCR1B & ~((1<<CS12) | (1<<CS11))) | (1<<CS10);
 
   memset(&prep, 0, sizeof(st_prep_t));
   memset(&st, 0, sizeof(stepper_t));
@@ -197,15 +210,11 @@ void st_reset() {
   segment_buffer_head = 0;
   segment_next_head = 1;
   busy = 0;
-
-  st_generate_step_dir_invert_masks();
-  st.dir_outbits = dir_port_invert_mask;
-
-  STEPPER_PORT = (STEPPER_PORT & ~STEP_MASK) | step_port_invert_mask;
-  STEPPER_PORT = (STEPPER_PORT & ~DIRECTION_MASK) | dir_port_invert_mask; }
+}
 
 void stepper_init() {
   STEPPER_DDR |= STEP_MASK | DIRECTION_MASK;
+  st_generate_step_dir_invert_masks();
 
   TCCR1B &= ~(1<<WGM13);
   TCCR1B |=  (1<<WGM12);
@@ -217,18 +226,22 @@ void stepper_init() {
   TIMSK0 &= ~((1<<OCIE0B) | (1<<OCIE0A) | (1<<TOIE0));
   TCCR0A = 0;
   TCCR0B = 0;
-  TIMSK0 |= (1<<TOIE0); }
+  TIMSK0 |= (1<<TOIE0);
+}
 
 void st_update_plan_block_parameters() {
   if (pl_block != NULL) {
     prep.recalculate_flag |= PREP_FLAG_RECALCULATE;
     pl_block->entry_speed_sqr = prep.current_speed*prep.current_speed;
-    pl_block = NULL; } }
+    pl_block = NULL;
+  }
+}
 
 static uint8_t st_next_block_index(uint8_t block_index) {
   block_index++;
   if (block_index == (SEGMENT_BUFFER_SIZE-1)) { return(0); }
-  return(block_index); }
+  return(block_index);
+}
 
 void st_prep_buffer() {
   if (bit_istrue(sys.step_control,STEP_CONTROL_END_MOTION)) { return; }
@@ -269,7 +282,9 @@ void st_prep_buffer() {
           pl_block->entry_speed_sqr = prep.exit_speed*prep.exit_speed;
           prep.recalculate_flag &= ~(PREP_FLAG_DECEL_OVERRIDE);
         } else {
-          prep.current_speed = sqrt(pl_block->entry_speed_sqr); } }
+          prep.current_speed = sqrt(pl_block->entry_speed_sqr);
+        }
+      }
 
       prep.mm_complete = 0;
       float inv_2_accel = .5/pl_block->acceleration;
@@ -283,7 +298,8 @@ void st_prep_buffer() {
           prep.exit_speed = sqrt(pl_block->entry_speed_sqr-2*pl_block->acceleration*pl_block->millimeters);
         } else {
           prep.mm_complete = decel_dist;
-          prep.exit_speed = 0; }
+          prep.exit_speed = 0;
+        }
 
       } else {
 
@@ -302,10 +318,7 @@ void st_prep_buffer() {
 
           prep.accelerate_until = pl_block->millimeters - inv_2_accel*(pl_block->entry_speed_sqr-nominal_speed_sqr);
           if (prep.accelerate_until <= 0) {
-
             prep.ramp_type = RAMP_DECEL;
-            //prep.decelerate_after = pl_block->millimeters;
-            //prep.maximum_speed = prep.current_speed;
 
             prep.exit_speed = sqrt(pl_block->entry_speed_sqr - 2*pl_block->acceleration*pl_block->millimeters);
             prep.recalculate_flag |= PREP_FLAG_DECEL_OVERRIDE;
@@ -314,7 +327,8 @@ void st_prep_buffer() {
 
             prep.decelerate_after = inv_2_accel*(nominal_speed_sqr-exit_speed_sqr);
             prep.maximum_speed = nominal_speed;
-            prep.ramp_type = RAMP_DECEL_OVERRIDE; }
+            prep.ramp_type = RAMP_DECEL_OVERRIDE;
+          }
 
         } else if (intersect_distance > 0) {
 
@@ -325,22 +339,23 @@ void st_prep_buffer() {
               if (pl_block->entry_speed_sqr == nominal_speed_sqr) {
                 prep.ramp_type = RAMP_CRUISE;
               } else {
-                prep.accelerate_until -= inv_2_accel*(nominal_speed_sqr-pl_block->entry_speed_sqr); }
+                prep.accelerate_until -= inv_2_accel*(nominal_speed_sqr-pl_block->entry_speed_sqr);
+              }
             } else {
               prep.accelerate_until = intersect_distance;
               prep.decelerate_after = intersect_distance;
-              prep.maximum_speed = sqrt(2*pl_block->acceleration*intersect_distance+exit_speed_sqr); }
+              prep.maximum_speed = sqrt(2*pl_block->acceleration*intersect_distance+exit_speed_sqr);
+            }
           } else {
             prep.ramp_type = RAMP_DECEL;
-            //prep.decelerate_after = pl_block->millimeters;
-            //prep.maximum_speed = prep.current_speed;
           }
 
         } else {
 
           prep.accelerate_until = 0;
-          //prep.decelerate_after = 0;
-          prep.maximum_speed = prep.exit_speed; } }
+          prep.maximum_speed = prep.exit_speed;
+        }
+      }
 
       bit_true(sys.step_control, STEP_CONTROL_UPDATE_SPINDLE_PWM);
     }
@@ -369,7 +384,8 @@ void st_prep_buffer() {
             prep.current_speed = prep.maximum_speed;
           } else {
             mm_remaining -= time_var*(prep.current_speed - .5*speed_var);
-            prep.current_speed -= speed_var; }
+            prep.current_speed -= speed_var;
+          }
           break;
         case RAMP_ACCEL:
           speed_var = pl_block->acceleration*time_var;
@@ -381,7 +397,8 @@ void st_prep_buffer() {
             else { prep.ramp_type = RAMP_CRUISE; }
             prep.current_speed = prep.maximum_speed;
           } else {
-            prep.current_speed += speed_var; }
+            prep.current_speed += speed_var;
+          }
           break;
         case RAMP_CRUISE:
           mm_var = mm_remaining - prep.maximum_speed*time_var;
@@ -390,7 +407,8 @@ void st_prep_buffer() {
             mm_remaining = prep.decelerate_after;
             prep.ramp_type = RAMP_DECEL;
           } else {
-            mm_remaining = mm_var; }
+            mm_remaining = mm_var;
+          }
           break;
         default:
           speed_var = pl_block->acceleration*time_var;
@@ -399,23 +417,30 @@ void st_prep_buffer() {
             if (mm_var > prep.mm_complete) {
               mm_remaining = mm_var;
               prep.current_speed -= speed_var;
-              break; } }
+              break;
+            }
+          }
           time_var = 2*(mm_remaining-prep.mm_complete)/(prep.current_speed+prep.exit_speed);
           mm_remaining = prep.mm_complete;
-          prep.current_speed = prep.exit_speed; }
+          prep.current_speed = prep.exit_speed;
+      }
       dt += time_var;
-      if (dt < dt_max) { time_var = dt_max - dt; }
-      else {
+      if (dt < dt_max) {
+        time_var = dt_max - dt;
+      } else {
         if (mm_remaining > minimum_mm) {
           dt_max += DT_SEGMENT;
           time_var = dt_max - dt;
         } else {
-          break; } }
+          break;
+        }
+      }
     } while (mm_remaining > prep.mm_complete);
 
     if (sys.step_control & STEP_CONTROL_UPDATE_SPINDLE_PWM) {
       prep.current_spindle_pwm = pl_block->spindle_speed;
-      bit_false(sys.step_control,STEP_CONTROL_UPDATE_SPINDLE_PWM); }
+      bit_false(sys.step_control,STEP_CONTROL_UPDATE_SPINDLE_PWM);
+    }
     prep_segment->spindle_pwm = prep.current_spindle_pwm;
 
     float step_dist_remaining = prep.step_per_mm*mm_remaining;
@@ -426,7 +451,9 @@ void st_prep_buffer() {
     if (prep_segment->n_step == 0) {
       if (sys.step_control & STEP_CONTROL_EXECUTE_HOLD) {
         bit_true(sys.step_control,STEP_CONTROL_END_MOTION);
-        return; } }
+        return;
+      }
+    }
 
     dt += prep.dt_remainder;
     float inv_rate = dt/(last_n_steps_remaining - step_dist_remaining);
@@ -439,7 +466,8 @@ void st_prep_buffer() {
         else if (cycles < AMASS_LEVEL3) { prep_segment->amass_level = 2; }
         else { prep_segment->amass_level = 3; }
         cycles >>= prep_segment->amass_level;
-        prep_segment->n_step <<= prep_segment->amass_level; }
+        prep_segment->n_step <<= prep_segment->amass_level;
+      }
       if (cycles < (1UL << 16)) { prep_segment->cycles_per_tick = cycles; }
       else { prep_segment->cycles_per_tick = 0xffff; }
     #else
@@ -454,7 +482,9 @@ void st_prep_buffer() {
         if (cycles < (1UL << 22)) {
           prep_segment->cycles_per_tick =  cycles >> 6;
         } else {
-          prep_segment->cycles_per_tick = 0xffff; } }
+          prep_segment->cycles_per_tick = 0xffff;
+        }
+      }
     #endif
 
     segment_buffer_head = segment_next_head;
@@ -470,4 +500,8 @@ void st_prep_buffer() {
         return;
       } else {
         pl_block = NULL;
-        plan_discard_current_block(); } } } }
+        plan_discard_current_block();
+      }
+    }
+  }
+}

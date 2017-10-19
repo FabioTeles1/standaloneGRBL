@@ -17,7 +17,6 @@
 #define LCD_DDRAM             7
 #define LCD_BUSY              7
 
-#define LCD_DISP_OFF             0x08
 #define LCD_DISP_ON              0x0C
 
 #define LCD_FUNCTION_4BIT_2LINES 0x28
@@ -27,7 +26,6 @@
 #define lcd_puts_P(__s) lcd_puts_p(PSTR(__s))
 
 extern void lcd_init();
-extern void lcd_clrscr(void);
 extern void lcd_gotoxy(uint8_t x, uint8_t y);
 extern void lcd_putc(char c);
 extern void lcd_puts_p(const char *progmem_s);

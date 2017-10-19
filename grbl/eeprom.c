@@ -7,7 +7,8 @@ unsigned char eeprom_get_char(unsigned int addr) {
   while(EECR & (1<<EEPE)) {}
   EEAR = addr;
   EECR = (1<<EERE);
-  return EEDR; }
+  return EEDR;
+}
 
 void eeprom_put_char(unsigned int addr, unsigned char new_value) {
   char old_value;
@@ -17,7 +18,7 @@ void eeprom_put_char(unsigned int addr, unsigned char new_value) {
 
   while(EECR & (1<<EEPE)) {}
   #ifndef EEPROM_IGNORE_SELFPROG
-    while(SPMCSR & (1<<SELFPRGEN)) {}
+  while(SPMCSR & (1<<SELFPRGEN)) {}
   #endif
 
   EEAR = addr;
@@ -33,16 +34,20 @@ void eeprom_put_char(unsigned int addr, unsigned char new_value) {
       EECR |= (1<<EEPE);
     } else {
       EECR = (1<<EEMPE) | (1<<EEPM0);
-      EECR |= (1<<EEPE); }
+      EECR |= (1<<EEPE);
+    }
 
   } else {
 
     if( diff_mask ) {
-    EEDR = new_value;
-    EECR = (1<<EEMPE) | (1<<EEPM1);
-    EECR |= (1<<EEPE); } }
+      EEDR = new_value;
+      EECR = (1<<EEMPE) | (1<<EEPM1);
+      EECR |= (1<<EEPE);
+    }
+  }
 
-  sei(); }
+  sei();
+}
 
 void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsigned int size) {
   unsigned char checksum = 0;
@@ -50,7 +55,8 @@ void memcpy_to_eeprom_with_checksum(unsigned int destination, char *source, unsi
   for(; size > 0; size--) {
     checksum = (checksum << 1) || (checksum >> 7);
     checksum += *source;
-    eeprom_put_char(destination++, *(source++)); }
+    eeprom_put_char(destination++, *(source++));
+  }
 
   eeprom_put_char(destination, checksum); }
 
@@ -61,6 +67,8 @@ int memcpy_from_eeprom_with_checksum(char *destination, unsigned int source, uns
     data = eeprom_get_char(source++);
     checksum = (checksum << 1) || (checksum >> 7);
     checksum += data;
-    *(destination++) = data; }
+    *(destination++) = data;
+  }
 
-  return(checksum == eeprom_get_char(source)); }
+  return(checksum == eeprom_get_char(source));
+}

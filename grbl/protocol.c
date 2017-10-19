@@ -15,6 +15,7 @@ void protocol_main_loop() {
   struct fat_dir_entry_struct dir_entry;
   for (;;) {
     if (btn_state && !(btn_state & (1<<4))) {
+
       if (btn_state & (1<<7)) {
         btn_state = 0;
         #ifndef COREXY
@@ -25,19 +26,27 @@ void protocol_main_loop() {
               if (val < 58) {
                 if (btn) {
                   btn = 0;
-                  break; }
+                  break;
+                }
               } else {
-                btn = 1; } }
-            _delay_ms(10); }
-          lcd_clear(); }
+                btn = 1;
+              }
+            }
+            _delay_ms(10);
+          }
+          lcd_clear();
+        }
         #endif
+
       } else if (btn_state & (1<<6)) {
         if (sd_raw_init()) {
           btn_state = 0;
           sys.state2 = STATE_FILE;
           if (!(partition = partition_open(sd_raw_read,sd_raw_read_interval,0))) {
             if (!(partition = partition_open(sd_raw_read,sd_raw_read_interval,-1))) {
-              lcd_error(101); } }
+              lcd_error(101);
+            }
+          }
           if (partition) {
             if ((fs = fat_open(partition))) {
               fat_get_dir_entry_of_path(fs, "/", &dir_entry);
@@ -45,9 +54,11 @@ void protocol_main_loop() {
                 idx = 0; f_cnt = 0;
                 while (fat_read_dir(dd, &dir_entry)) {
                   if (!(dir_entry.attributes & FAT_ATTRIB_DIR)) {
-                    f_cnt++; } }
+                    f_cnt++;
+                  }
+                }
                 if (f_cnt > 0) {
-                  lcd_clrscr(); val = 0;
+                  lcd_command(1<<LCD_CLR); val = 0;
                   fat_reset_dir(dd);
                   while (fat_read_dir(dd, &dir_entry)) {
                     if (!(dir_entry.attributes & FAT_ATTRIB_DIR)) {
@@ -55,8 +66,12 @@ void protocol_main_loop() {
                       if (val == 0) {
                         lcd_puts_P("~"); lcd_file(dir_entry.long_name);
                       } else {
-                        lcd_puts_P(" "); lcd_file(dir_entry.long_name); break; }
-                      val++; } }
+                        lcd_puts_P(" "); lcd_file(dir_entry.long_name);
+                        break;
+                      }
+                      val++;
+                    }
+                  }
                   while(1) {
                     if (f_cnt > 1) {
                       if ((val = adc_read(CONTROL_JOG_Y)) < 63) {
@@ -72,8 +87,12 @@ void protocol_main_loop() {
                                   lcd_puts_P(" "); lcd_file(dir_entry.long_name);
                                 } else if (val == idx) {
                                   lcd_gotoxy(0,1);
-                                  lcd_puts_P("~"); lcd_file(dir_entry.long_name); break; }
-                                val++; } }
+                                  lcd_puts_P("~"); lcd_file(dir_entry.long_name);
+                                  break;
+                                }
+                                val++;
+                              }
+                            }
                           } else {
                             idx = 0;
                             while (fat_read_dir(dd, &dir_entry)) {
@@ -83,8 +102,14 @@ void protocol_main_loop() {
                                   lcd_puts_P("~"); lcd_file(dir_entry.long_name);
                                 } else if (val == idx+1) {
                                   lcd_gotoxy(0,1);
-                                  lcd_puts_P(" "); lcd_file(dir_entry.long_name); break; }
-                                val++; } } } }
+                                  lcd_puts_P(" "); lcd_file(dir_entry.long_name);
+                                  break;
+                                }
+                                val++;
+                              }
+                            }
+                          }
+                        }
                       } else if (val < 191) {
                         if (!(btn_state & (1<<4))) {
                           btn_state |= (1<<4);
@@ -99,8 +124,12 @@ void protocol_main_loop() {
                                   lcd_puts_P("~"); lcd_file(dir_entry.long_name);
                                 } else if (val == idx+1) {
                                   lcd_gotoxy(0,1);
-                                  lcd_puts_P(" "); lcd_file(dir_entry.long_name); break; }
-                                val++; } }
+                                  lcd_puts_P(" "); lcd_file(dir_entry.long_name);
+                                  break;
+                                }
+                                val++;
+                              }
+                            }
                           } else {
                             idx = f_cnt-1;
                             while (fat_read_dir(dd, &dir_entry)) {
@@ -110,40 +139,47 @@ void protocol_main_loop() {
                                   lcd_puts_P(" "); lcd_file(dir_entry.long_name);
                                 } else if (val == idx) {
                                   lcd_gotoxy(0,1);
-                                  lcd_puts_P("~"); lcd_file(dir_entry.long_name); break; }
-                                val++; } } } }
+                                  lcd_puts_P("~"); lcd_file(dir_entry.long_name);
+                                  break;
+                                }
+                                val++;
+                              }
+                            }
+                          }
+                        }
                       } else {
-                        btn_state &= ~(1<<4); } }
+                        btn_state &= ~(1<<4);
+                      }
+                    }
                     if (btn_state & (1<<4)) { continue; }
                     if (abs(adc_read(CONTROL_OTHER) - (val = adc_read(CONTROL_OTHER))) <= 2) {
                       if (val < 58) {
                         if (btn) {
                           btn = 0;
                           if (val < 21) {
-                            break; }
+                            break;
+                          }
                           fat_reset_dir(dd); val = 0;
                           while (fat_read_dir(dd, &dir_entry)) {
                             if (!(dir_entry.attributes & FAT_ATTRIB_DIR)) {
                               if (val == idx) {
                                 fd = fat_open_file(fs, &dir_entry);
-                                break; }
-                              val++; } }
-                          break; }
+                                break;
+                              }
+                              val++;
+                            }
+                          }
+                          break;
+                        }
                       } else {
-                        btn = 1; } }
-                    _delay_ms(10); }
+                        btn = 1;
+                      }
+                    }
+                    _delay_ms(10);
+                  }
                   if (fd) {
                     lcd_clear();
-
-                    sys.f_override = 100;
-                    pl_data.feed_rate = 1200;
-                    pl_data.spindle_speed = 255;
-                    pl_data.units = 0;
-                    pl_data.distance = 0;
-                    pl_data.condition = PL_COND_FLAG_RAPID_MOTION;
-                    pl_data.gc_pos[X_AXIS] = ((pl_data.xyz[X_AXIS] = plan_get_position(X_AXIS)) - wco[X_AXIS]) / settings.steps_per_mm[X_AXIS];
-                    pl_data.gc_pos[Y_AXIS] = ((pl_data.xyz[Y_AXIS] = plan_get_position(Y_AXIS)) - wco[Y_AXIS]) / settings.steps_per_mm[Y_AXIS];
-                    spindle_set_speed(SPINDLE_PWM_OFF_VALUE); lcd_state2();
+                    gc_prep();
                     char_counter = 0; val = STATUS_OK;
                     while ((c = fat_read_byte(fd)) != 0xff) {
                       if (c == '\n' || c == '\r') {
@@ -152,21 +188,27 @@ void protocol_main_loop() {
 
                           if (sys.state != STATE_HOLD) {
                             protocol_execute_realtime();
-                            if (sys.abort) { break; } }
+                            if (sys.abort) { break; }
+                          }
 
                           line[char_counter] = 0;
 
                           if ((val = gc_execute_line(line)) != STATUS_OK) {
-                            break; }
+                            break;
+                          }
 
-                          char_counter = 0; }
+                          char_counter = 0;
+                        }
 
                       } else if (c != ' ') {
 
                         if (char_counter >= (LINE_BUFFER_SIZE-1)) {
                           val = STATUS_OVERFLOW; break;
                         } else {
-                          line[char_counter++] = c; } } }
+                          line[char_counter++] = c;
+                        }
+                      }
+                    }
 
                     protocol_buffer_synchronize();
                     if (sys.abort) { val = STATUS_OK; }
@@ -177,25 +219,36 @@ void protocol_main_loop() {
                           if (val < 58) {
                             if (btn) {
                               btn = 0;
-                              break; }
+                              break;
+                            }
                           } else {
-                            btn = 1; } }
-                        _delay_ms(10); }
-                      lcd_clear(); }
+                            btn = 1;
+                          }
+                        }
+                        _delay_ms(10);
+                      }
+                      lcd_clear();
+                    }
 
                     fat_close_file(fd);
                     fat_close_dir(dd);
                     fat_close(fs);
                     partition_close(partition);
-                    return; }
+                    return;
+                  }
                 } else {
-                  lcd_error(102); }
+                  lcd_error(102);
+                }
               } else {
-                lcd_error(101); }
+                lcd_error(101);
+              }
             } else {
-              lcd_error(101); } }
+              lcd_error(101);
+            }
+          }
         } else {
-          lcd_error(100); }
+          lcd_error(100);
+        }
         fat_close_dir(dd);
         fat_close(fs);
         partition_close(partition);
@@ -205,48 +258,59 @@ void protocol_main_loop() {
               if (val < 58) {
                 if (btn) {
                   if (val < 21) {
-                    btn_state = 0; }
+                    btn_state = 0;
+                  }
                   btn = 0;
-                  break; }
+                  break;
+                }
               } else {
-                btn = 1; } }
-            _delay_ms(10); } }
+                btn = 1;
+              }
+            }
+            _delay_ms(10);
+          }
+        }
         if (btn_state) {
           continue;
         } else {
-          lcd_clear(); }
+          lcd_clear();
+        }
+
       } else if (btn_state & (1<<5)) {
         btn_state = 0;
-        val = 35;
-        while (!btn && val > 0) {
-          _delay_ms(10);
-          buttons_check();
-          val--; }
-        if (!btn) {
-          if (bit_isfalse(settings.flags,BITFLAG_HOMING_ENABLE)) {
-            memset(sys_position, 0, sizeof(sys_position));
-            plan_sync_position();
-          } else {
-            memcpy(wco, sys_position, sizeof(wco));
-            memcpy_to_eeprom_with_checksum(EEPROM_ADDR_PARAMETERS, (char*)&wco, sizeof(wco)); }
-        } else {
-          sys.state2 = STATE_ORIGIN;
-          gc_execute_line("IN;"); }
+        sys.state2 = STATE_ORIGIN;
+        if (bit_istrue(settings.flags,BITFLAG_IS_SERVO)) {
+          spindle_set_speed(SPINDLE_PWM_OFF_VALUE); lcd_state2();
+          val = max(1, ceil(1.0 / DWELL_TIME_STEP * settings.servo_delay));
+          while (val > 0) {
+            protocol_exec_rt_system();
+            if (sys.abort) { return(0); }
+            _delay_ms(DWELL_TIME_STEP);
+            val--;
+          }
+          pl_data.condition = PL_COND_FLAG_RAPID_MOTION;
+        }
+        gc_execute_line("G0X0Y0");
+
       } else {
         val = 35;
         jog_execute(1);
         while (btn_state && val > 0) {
           _delay_ms(10);
-          buttons_check();
           protocol_exec_rt_system();
           if (sys.abort) { return; }
-          val--; }
+          val--;
+        }
         while (btn_state) {
           protocol_execute_realtime();
           if (sys.abort) { return; }
-          jog_execute(2); }
-        if (sys.abort) { return; } }
-      serial_reset_read_buffer(); }
+          jog_execute(2);
+        }
+        if (sys.abort) { return; }
+      }
+
+      serial_reset_read_buffer();
+    }
 
     while ((c = serial_read()) != SERIAL_NO_DATA) {
       if (c == '\n' || c == '\r') {
@@ -255,7 +319,8 @@ void protocol_main_loop() {
 
           if (sys.state != STATE_HOLD) {
             protocol_execute_realtime();
-            if (sys.abort) { break; } }
+            if (sys.abort) { break; }
+          }
 
           line[char_counter] = 0;
 
@@ -266,10 +331,12 @@ void protocol_main_loop() {
           } else if (sys.state & (STATE_ALARM | STATE_JOG)) {
             report_status_message(STATUS_SYSTEM_GC_LOCK);
           } else {
-            report_status_message(gc_execute_line(line)); }
+            report_status_message(gc_execute_line(line));
+          }
 
           line_flags = 0;
-          char_counter = 0; }
+          char_counter = 0;
+        }
 
       } else if (c == '#') {
 
@@ -282,43 +349,59 @@ void protocol_main_loop() {
           if (char_counter >= (LINE_BUFFER_SIZE-1)) {
             line_flags |= LINE_FLAG_OVERFLOW;
           } else {
-            line[char_counter++] = c; } } } }
+            line[char_counter++] = c;
+          }
+        }
+      }
+    }
     if (sys.abort) { return; }
 
     if (STATE_IDLE == sys.state) {
       if (bit_istrue(settings.flags,BITFLAG_XY_HOME_PIN_AS_ST_ENABLE)) {
         if ((bit_isfalse(settings.flags,BITFLAG_INVERT_LIMIT_PINS) ? bit_isfalse(STEPPERS_DISABLE_PORT,(1<<STEPPERS_DISABLE_BIT)):bit_istrue(STEPPERS_DISABLE_PORT,(1<<STEPPERS_DISABLE_BIT)))) {
           if (0 == sys_position[X_AXIS] && 0 == sys_position[Y_AXIS]) {
-            delay_ms(200);
+            _delay_ms(250);
             if (bit_isfalse(settings.flags,BITFLAG_INVERT_LIMIT_PINS)) { STEPPERS_DISABLE_PORT |= (1<<STEPPERS_DISABLE_BIT); }
-            else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); } } } } }
+            else { STEPPERS_DISABLE_PORT &= ~(1<<STEPPERS_DISABLE_BIT); }
+          }
+        }
+      }
+    }
 
     if (sys.state != STATE_HOLD) {
       protocol_execute_realtime();
-      if (sys.abort) { return; } } }
+      if (sys.abort) { return; }
+    }
+  }
 
-  return; }
+  return;
+}
 
 void protocol_buffer_synchronize() {
   while (plan_get_current_block() || (sys.state == STATE_CYCLE)) {
     protocol_execute_realtime();
-    if (sys.abort) { return; } } }
+    if (sys.abort) { return; }
+  }
+}
 
 void protocol_auto_cycle_start() {
   if (plan_get_current_block() != NULL) {
-    system_set_exec_state_flag(EXEC_CYCLE_START); } }
+    system_set_exec_state_flag(EXEC_CYCLE_START);
+  }
+}
 
 void protocol_execute_realtime() {
-  buttons_check();
   protocol_exec_rt_system();
   while (sys.suspend) {
-    buttons_check();
-    protocol_exec_rt_system(); } }
+    protocol_exec_rt_system();
+  }
+}
 
 void protocol_exec_rt_system() {
-  uint8_t rt_exec = sys_rt_exec_state;
+  buttons_check();
+  uint8_t rt_exec;
 
-  if (rt_exec) {
+  if ((rt_exec = sys_rt_exec_state)) {
 
     if (rt_exec & (EXEC_RESET | EXEC_FEED_HOLD)) {
       if (sys.state == STATE_CYCLE) {
@@ -331,11 +414,15 @@ void protocol_exec_rt_system() {
           sys.abort = 1;
           sys.suspend = 0;
           sys.non_modal_dwell = 0;
-          return; }
+          return;
+        }
       } else if (sys.state == STATE_HOMING) {
         if (rt_exec & EXEC_RESET) {
-          sys.abort = 1; } }
-      sys_rt_exec_state &= ~(EXEC_RESET | EXEC_FEED_HOLD); }
+          sys.abort = 1;
+        }
+      }
+      sys_rt_exec_state &= ~(EXEC_RESET | EXEC_FEED_HOLD);
+    }
 
     if (rt_exec & EXEC_CYCLE_START) {
       if (sys.state == STATE_IDLE || sys.state == STATE_HOLD) {
@@ -348,12 +435,17 @@ void protocol_exec_rt_system() {
           st_wake_up();
         } else {
           if (!sys.non_modal_dwell) {
-            sys.state = STATE_IDLE; } } }
-      bit_false(sys_rt_exec_state,EXEC_CYCLE_START); }
+            sys.state = STATE_IDLE;
+          }
+        }
+      }
+      bit_false(sys_rt_exec_state,EXEC_CYCLE_START);
+    }
 
     if (rt_exec & EXEC_STATUS_REPORT) {
       lcd_position(); lcd_state();
-      bit_false(sys_rt_exec_state,EXEC_STATUS_REPORT); }
+      bit_false(sys_rt_exec_state,EXEC_STATUS_REPORT);
+    }
 
     if (rt_exec & EXEC_CYCLE_STOP) {
       sys_rt_exec_state |= EXEC_STATUS_REPORT;
@@ -367,11 +459,17 @@ void protocol_exec_rt_system() {
           return;
         } else {
           sys.state = STATE_HOLD;
-          sys.suspend = 1; }
+          sys.suspend = 1;
+        }
       } else {
         sys.state = STATE_IDLE;
-        protocol_auto_cycle_start(); }
-      bit_false(sys_rt_exec_state,EXEC_CYCLE_STOP); } }
+        protocol_auto_cycle_start();
+      }
+      bit_false(sys_rt_exec_state,EXEC_CYCLE_STOP);
+    }
+  }
 
   if (sys.state & (STATE_CYCLE | STATE_HOMING | STATE_JOG)) {
-    st_prep_buffer(); } }
+    st_prep_buffer();
+  }
+}

@@ -12,25 +12,33 @@ void jog_execute(uint8_t i) {
       f_pos = (plan_get_position(idx) - wco[idx]) / settings.steps_per_mm[idx];
       pos = round(f_pos * 10) / 10 + i/10.0;
       if (pos - f_pos > (0.8/settings.steps_per_mm[idx] + i/10.0)) {
-        pos -= i/10.0; }
+        pos -= i/10.0;
+      }
       pl_data.xyz[idx] = lround(pos*settings.steps_per_mm[idx]) + wco[idx];
       if (bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) {
         if (pl_data.xyz[idx] > lround(settings.max_travel[idx] * settings.steps_per_mm[idx])) {
           pl_data.xyz[idx] = plan_get_position(idx);
-          j--; } }
+          j--;
+        }
+      }
     } else if (bit_istrue(btn_state,bit(N_AXIS+idx))) {
       f_pos = (plan_get_position(idx) - wco[idx]) / settings.steps_per_mm[idx];
       pos = round(f_pos * 10) / 10 - i/10.0;
       if (pos - f_pos < -(0.8/settings.steps_per_mm[idx] + i/10.0)) {
-        pos += i/10.0; }
+        pos += i/10.0;
+      }
       pl_data.xyz[idx] = lround(pos*settings.steps_per_mm[idx]) + wco[idx];
       if (bit_istrue(settings.flags, BITFLAG_HOMING_ENABLE)) {
         if (pl_data.xyz[idx] < 0) {
           pl_data.xyz[idx] = plan_get_position(idx);
-          j--; } }
+          j--;
+        }
+      }
     } else {
       pl_data.xyz[idx] = plan_get_position(idx);
-      j--; } }
+      j--;
+    }
+  }
 
   pl_data.feed_rate = 3000.0 * sqrt(j);
 
@@ -39,12 +47,13 @@ void jog_execute(uint8_t i) {
   } else if (settings.max_rate[X_AXIS] < 1200.0 || settings.max_rate[Y_AXIS] < 1200.0) {
     j = 5;
   } else {
-    j = 10; }
+    j = 10;
+  }
 
   while (plan_get_block_buffer_count() > j) {
-    buttons_check();
     protocol_exec_rt_system();
-    if (sys.abort) { return; } }
+    if (sys.abort) { return; }
+  }
 
   plan_buffer_line();
 
@@ -54,4 +63,7 @@ void jog_execute(uint8_t i) {
     if (plan_get_current_block() != NULL) {
       sys.state = STATE_JOG;
       st_prep_buffer();
-      st_wake_up(); } } }
+      st_wake_up();
+    }
+  }
+}

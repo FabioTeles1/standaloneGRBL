@@ -6,7 +6,7 @@
 #define MINIMUM_JUNCTION_SPEED 0
 #define MINIMUM_FEED_RATE 1
 
-#define PL_COND_FLAG_RAPID_MOTION      bit(0)
+#define PL_COND_FLAG_RAPID_MOTION bit(0)
 
 typedef struct {
   uint32_t steps[N_AXIS];
@@ -37,9 +37,7 @@ extern plan_line_data_t pl_data;
 void plan_reset();
 uint8_t plan_buffer_line();
 void plan_discard_current_block();
-
 plan_block_t *plan_get_current_block();
-
 uint8_t plan_next_block_index(uint8_t block_index);
 float plan_get_exec_block_exit_speed_sqr();
 float plan_compute_profile_nominal_speed(plan_block_t *block);

@@ -19,12 +19,14 @@ static planner_t pl;
 uint8_t plan_next_block_index(uint8_t block_index) {
   block_index++;
   if (block_index == BLOCK_BUFFER_SIZE) { block_index = 0; }
-  return(block_index); }
+  return(block_index);
+}
 
 static uint8_t plan_prev_block_index(uint8_t block_index) {
   if (block_index == 0) { block_index = BLOCK_BUFFER_SIZE; }
   block_index--;
-  return(block_index); }
+  return(block_index);
+}
 
 static void planner_recalculate() {
   uint8_t block_index = plan_prev_block_index(block_buffer_head);
@@ -53,7 +55,11 @@ static void planner_recalculate() {
         if (entry_speed_sqr < current->max_entry_speed_sqr) {
           current->entry_speed_sqr = entry_speed_sqr;
         } else {
-          current->entry_speed_sqr = current->max_entry_speed_sqr; } } } }
+          current->entry_speed_sqr = current->max_entry_speed_sqr;
+        }
+      }
+    }
+  }
 
   next = &block_buffer[block_buffer_planned];
   block_index = plan_next_block_index(block_buffer_planned);
@@ -65,10 +71,14 @@ static void planner_recalculate() {
       entry_speed_sqr = current->entry_speed_sqr + 2*current->acceleration*current->millimeters;
       if (entry_speed_sqr < next->entry_speed_sqr) {
         next->entry_speed_sqr = entry_speed_sqr;
-        block_buffer_planned = block_index; } }
+        block_buffer_planned = block_index;
+      }
+    }
 
     if (next->entry_speed_sqr == next->max_entry_speed_sqr) { block_buffer_planned = block_index; }
-    block_index = plan_next_block_index(block_index); } }
+    block_index = plan_next_block_index(block_index);
+  }
+}
 
 void plan_reset() {
   memset(&pl, 0, sizeof(planner_t));
@@ -81,36 +91,46 @@ void plan_discard_current_block() {
   if (block_buffer_head != block_buffer_tail) {
     uint8_t block_index = plan_next_block_index(block_buffer_tail);
     if (block_buffer_tail == block_buffer_planned) { block_buffer_planned = block_index; }
-    block_buffer_tail = block_index; } }
+    block_buffer_tail = block_index;
+  }
+}
 
 plan_block_t *plan_get_current_block() {
   if (block_buffer_head == block_buffer_tail) { return(NULL); }
-  return(&block_buffer[block_buffer_tail]); }
+  return(&block_buffer[block_buffer_tail]);
+}
 
 float plan_get_exec_block_exit_speed_sqr() {
   uint8_t block_index = plan_next_block_index(block_buffer_tail);
   if (block_index == block_buffer_head) { return(0); }
-  return(block_buffer[block_index].entry_speed_sqr); }
+  return(block_buffer[block_index].entry_speed_sqr);
+}
 
 uint8_t plan_check_full_buffer() {
   if (block_buffer_tail == next_buffer_head) { return(1); }
-  return(0); }
+  return(0);
+}
 
 float plan_compute_profile_nominal_speed(plan_block_t *block) {
   float nominal_speed = block->programmed_rate;
   if (!(block->condition & PL_COND_FLAG_RAPID_MOTION)) {
     nominal_speed *= (.01*sys.f_override);
-    if (nominal_speed > block->rapid_rate) { nominal_speed = block->rapid_rate; } }
+    if (nominal_speed > block->rapid_rate) { nominal_speed = block->rapid_rate; }
+  }
   if (nominal_speed > MINIMUM_FEED_RATE) { return(nominal_speed); }
-  return(MINIMUM_FEED_RATE); }
+  return(MINIMUM_FEED_RATE);
+}
 
 static void plan_compute_profile_parameters(plan_block_t *block, float nominal_speed, float prev_nominal_speed) {
   if (nominal_speed > prev_nominal_speed) {
     block->max_entry_speed_sqr = prev_nominal_speed*prev_nominal_speed;
   } else {
-    block->max_entry_speed_sqr = nominal_speed*nominal_speed; }
+    block->max_entry_speed_sqr = nominal_speed*nominal_speed;
+  }
   if (block->max_entry_speed_sqr > block->max_junction_speed_sqr) {
-    block->max_entry_speed_sqr = block->max_junction_speed_sqr; } }
+    block->max_entry_speed_sqr = block->max_junction_speed_sqr;
+  }
+}
 
 void plan_update_velocity_profile_parameters() {
   uint8_t block_index = block_buffer_tail;
@@ -122,8 +142,10 @@ void plan_update_velocity_profile_parameters() {
     nominal_speed = plan_compute_profile_nominal_speed(block);
     plan_compute_profile_parameters(block, nominal_speed, prev_nominal_speed);
     prev_nominal_speed = nominal_speed;
-    block_index = plan_next_block_index(block_index); }
-  pl.previous_nominal_speed = prev_nominal_speed; }
+    block_index = plan_next_block_index(block_index);
+  }
+  pl.previous_nominal_speed = prev_nominal_speed;
+}
 
 uint8_t plan_buffer_line() {
   plan_block_t *block = &block_buffer[block_buffer_head];
@@ -147,7 +169,8 @@ uint8_t plan_buffer_line() {
       if (idx == A_MOTOR) {
         delta_mm = (pl_data.xyz[X_AXIS]-position_steps[X_AXIS] + pl_data.xyz[Y_AXIS]-position_steps[Y_AXIS])/settings.steps_per_mm[idx];
       } else {
-        delta_mm = (pl_data.xyz[X_AXIS]-position_steps[X_AXIS] - pl_data.xyz[Y_AXIS]+position_steps[Y_AXIS])/settings.steps_per_mm[idx]; }
+        delta_mm = (pl_data.xyz[X_AXIS]-position_steps[X_AXIS] - pl_data.xyz[Y_AXIS]+position_steps[Y_AXIS])/settings.steps_per_mm[idx];
+      }
     #else
       block->steps[idx] = labs(pl_data.xyz[idx]-position_steps[idx]);
       block->step_event_count = max(block->step_event_count, block->steps[idx]);
@@ -155,7 +178,8 @@ uint8_t plan_buffer_line() {
     #endif
     unit_vec[idx] = delta_mm;
 
-    if (delta_mm < 0.0 ) { block->direction_bits |= get_direction_pin_mask(idx); } }
+    if (delta_mm < 0.0 ) { block->direction_bits |= get_direction_pin_mask(idx); }
+  }
 
   if (block->step_event_count == 0) { return(PLAN_EMPTY_BLOCK); }
 
@@ -192,7 +216,10 @@ uint8_t plan_buffer_line() {
         convert_delta_vector_to_unit_vector(junction_unit_vec);
         float junction_acceleration = limit_value_by_axis_maximum(settings.acceleration, junction_unit_vec);
         float sin_theta_d2 = sqrt(.5*(1-junction_cos_theta));
-        block->max_junction_speed_sqr = max(MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED, (junction_acceleration * settings.junction_deviation * sin_theta_d2)/(1.0-sin_theta_d2)); } } }
+        block->max_junction_speed_sqr = max(MINIMUM_JUNCTION_SPEED*MINIMUM_JUNCTION_SPEED, (junction_acceleration * settings.junction_deviation * sin_theta_d2)/(1.0-sin_theta_d2));
+      }
+    }
+  }
 
   float nominal_speed = plan_compute_profile_nominal_speed(block);
   plan_compute_profile_parameters(block, nominal_speed, pl.previous_nominal_speed);
@@ -215,16 +242,22 @@ void plan_sync_position() {
   #else
     memcpy(pl.position, sys_position, sizeof(pl.position));
   #endif
+  memcpy(pl_data.xyz, pl.position, sizeof(pl.position));
+  pl_data.gc_pos[X_AXIS] = (pl_data.xyz[X_AXIS] - wco[X_AXIS]) / settings.steps_per_mm[X_AXIS];
+  pl_data.gc_pos[Y_AXIS] = (pl_data.xyz[Y_AXIS] - wco[Y_AXIS]) / settings.steps_per_mm[Y_AXIS];
 }
 
 int32_t plan_get_position(uint8_t idx) {
-  return(pl.position[idx]); }
+  return(pl.position[idx]);
+}
 
 uint8_t plan_get_block_buffer_count() {
   if (block_buffer_head >= block_buffer_tail) { return(block_buffer_head-block_buffer_tail); }
-  return(BLOCK_BUFFER_SIZE - (block_buffer_tail-block_buffer_head)); }
+  return(BLOCK_BUFFER_SIZE - (block_buffer_tail-block_buffer_head));
+}
 
 void plan_cycle_reinitialize() {
   st_update_plan_block_parameters();
   block_buffer_planned = block_buffer_tail;
-  planner_recalculate(); }
+  planner_recalculate();
+}

@@ -11,14 +11,18 @@
 #define DEFAULT_JUNCTION_DEVIATION 0.010
 #define DEFAULT_INVERT_LIMIT_PINS 0
 #define DEFAULT_HOMING_ENABLE 0
+#define DEFAULT_SERVO_MAX_PWM 38 //2.5 ms
+#define DEFAULT_SERVO_MIN_PWM 7 //0.5 ms
+#define DEFAULT_SERVO_DELAY 150
 
 #define SETTINGS_VERSION 31
 
 #define EEPROM_ADDR_GLOBAL 1U
 #define EEPROM_ADDR_PARAMETERS 512U
 
+#define BITFLAG_IS_SERVO bit(3)
 #define BITFLAG_XY_HOME_PIN_AS_ST_ENABLE bit(2)
-#define BITFLAG_HOMING_ENABLE     bit(1)
+#define BITFLAG_HOMING_ENABLE bit(1)
 #define BITFLAG_INVERT_LIMIT_PINS bit(0)
 
 typedef struct {
@@ -30,6 +34,9 @@ typedef struct {
   uint8_t dir_invert_mask;
   float junction_deviation;
   uint8_t flags;
+  uint8_t servo_max_pwm;
+  uint8_t servo_min_pwm;
+  uint16_t servo_delay;
 } settings_t;
 extern settings_t settings;
 
