@@ -22,6 +22,7 @@ Hi, I hope you found this project useful. If you have any questions or problems,
 ## ARDUINO MEGA2560 - 3 AXIS CONTROLLER
 
 ### PINOUT
+![pinout](/uploads/pinout_mega2560.jpg?raw=true)
 
 ### BUTTONS
 **X+**, **X-**, **Y+**, **Y-**, **Z+** and **Z-** allows you to manually move the machine, the motion will continue as long as the button is pressed. Otherwise, the axis will move exactly 0.1 or 0.5 mm each time the button is pressed.
@@ -46,6 +47,8 @@ Hi, I hope you found this project useful. If you have any questions or problems,
 
 ## DOWNLOADS
 [standaloneGRBL_2axis.zip](https://yadi.sk/d/7bHaRurQ3LtvVW)
+
+[standaloneGRBL_3axis.zip](https://yadi.sk/d/mtgaGE1t3NvQUv)
 
 ***
 If you found this software useful, make a small donation: [PayPal](https://www.paypal.me/runnybore604) / [Yandex.Money](https://money.yandex.ru/to/410013968246480)
